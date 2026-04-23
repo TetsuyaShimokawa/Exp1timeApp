@@ -76,7 +76,7 @@ export default function BreakScreen({
           <p style={s.text}>残り <strong>{remainingBlocks} ブロック</strong> です。</p>
           {nextStake && (
             <div style={s.stakeBox}>
-              <span style={s.stakeLabel}>次の賭け金</span>
+              <span style={s.stakeLabel}>次のブロックの将来受取額</span>
               <span style={s.stakeValue}>{formatYen(nextStake)}</span>
             </div>
           )}

@@ -1,26 +1,13 @@
 import { useState } from 'react'
-import { startSession } from '../utils'
-
-const DELAYS = [
-  { value: '1week',  label: '1週間後' },
-  { value: '1month', label: '1ヶ月後' },
-  { value: '3months', label: '3ヶ月後' },
-]
 
 export default function SetupScreen({ onSetup, loading, error }) {
-  const urlParams = new URLSearchParams(window.location.search)
-  const urlDelay = urlParams.get('delay')
-
   const [participantId, setParticipantId] = useState('')
   const [name, setName] = useState('')
-  const [delayCondition, setDelayCondition] = useState(
-    urlDelay && DELAYS.find((d) => d.value === urlDelay) ? urlDelay : ''
-  )
 
   function handleSubmit(e) {
     e.preventDefault()
-    if (!participantId.trim() || !name.trim() || !delayCondition) return
-    onSetup(participantId.trim(), name.trim(), delayCondition)
+    if (!participantId.trim() || !name.trim()) return
+    onSetup(participantId.trim(), name.trim())
   }
 
   return (
@@ -52,26 +39,11 @@ export default function SetupScreen({ onSetup, loading, error }) {
               placeholder="例: 山田 太郎"
             />
           </div>
-          <div style={s.field}>
-            <label style={s.label} htmlFor="delay">遅延条件</label>
-            <select
-              id="delay"
-              style={s.input}
-              value={delayCondition}
-              onChange={(e) => setDelayCondition(e.target.value)}
-              disabled={!!urlDelay}
-            >
-              <option value="">-- 選択してください --</option>
-              {DELAYS.map((d) => (
-                <option key={d.value} value={d.value}>{d.label}</option>
-              ))}
-            </select>
-          </div>
           {error && <p style={s.error}>{error}</p>}
           <button
             type="submit"
             style={{ ...s.btn, opacity: loading ? 0.6 : 1 }}
-            disabled={loading || !participantId.trim() || !name.trim() || !delayCondition}
+            disabled={loading || !participantId.trim() || !name.trim()}
           >
             {loading ? '接続中...' : '開始する'}
           </button>

@@ -1,13 +1,13 @@
 import { formatYen } from '../utils'
 
-export default function FinishScreen({ participantId, bdmResult, complianceLog, condition, allResults }) {
+export default function FinishScreen({ participantId, bdmResult, complianceLog, condition, allResults, delayLabel }) {
   const complianceRate = condition === 'HIGH' && complianceLog?.length > 0
     ? Math.round((complianceLog.filter((e) => e.correct).length / complianceLog.length) * 100)
     : null
 
   function downloadCSV() {
     if (!allResults || allResults.length === 0) return
-    const headers = ['trial_id', 'block', 'stake', 'exchange_rate', 'allocation_today', 'allocation_future', 'delay_label', 'response_time_ms']
+    const headers = ['block', 'exchange_rate', 'future_amount', 'row', 'today_amount', 'choice', 'response_time_ms']
     const rows = allResults.map((t) => headers.map((h) => t[h] ?? '').join(','))
     const csv = [headers.join(','), ...rows].join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
@@ -31,12 +31,14 @@ export default function FinishScreen({ participantId, bdmResult, complianceLog, 
             <h3 style={{ margin: '0 0 10px', color: '#1565c0' }}>🎲 報酬抽選結果</h3>
             <p style={s.line}>
               <strong>抽選された試行：</strong>
-              賭け金 {formatYen(bdmResult.selected.stake)}、交換レート {bdmResult.selected.exchange_rate}
+              ブロック {bdmResult.selected.block}、交換レート ×{bdmResult.selected.exchange_rate}、
+              今日 {formatYen(bdmResult.selected.today_amount)} ／ {delayLabel} {formatYen(bdmResult.selected.future_amount)}
             </p>
             <p style={s.line}>
-              <strong>あなたの配分：</strong>
-              今日 {formatYen(bdmResult.selected.allocation_today)} ／
-              {bdmResult.selected.delay_label} {formatYen(bdmResult.selected.allocation_future)}
+              <strong>あなたの選択：</strong>
+              {bdmResult.selected.choice === 'A'
+                ? `A（今日 ${formatYen(bdmResult.selected.today_amount)}）`
+                : `B（${delayLabel} ${formatYen(bdmResult.selected.future_amount)}）`}
             </p>
             <p style={s.line}>
               <strong>パフォーマンス報酬：</strong>{formatYen(bdmResult.reward)}
@@ -62,9 +64,7 @@ export default function FinishScreen({ participantId, bdmResult, complianceLog, 
         <p style={s.note}>実験者にお知らせください。この画面はそのままにしておいてください。</p>
 
         {allResults && allResults.length > 0 && (
-          <button onClick={downloadCSV} style={s.csvBtn}>
-            結果をCSVダウンロード
-          </button>
+          <button onClick={downloadCSV} style={s.csvBtn}>結果をCSVダウンロード</button>
         )}
       </div>
     </div>

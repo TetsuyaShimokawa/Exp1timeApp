@@ -10,10 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from models.session import SessionStartRequest
-from models.result import CTBResult
-from trial_generator import DELAYS, generate_ctb_trials, generate_digit_strings
+from models.result import MPLRowResult
+from trial_generator import DELAYS, generate_mpl_trials, generate_digit_strings, EXCHANGE_RATES
 
-app = FastAPI(title="Exp1timeApp API — Cognitive Load × CTB Time Discounting")
+app = FastAPI(title="Exp1timeApp API — Cognitive Load × MPL Time Discounting")
 
 ALLOWED_ORIGINS = [
     "http://localhost:5173",
@@ -44,38 +44,37 @@ def health_check():
 def start_session(req: SessionStartRequest):
     if not req.participant_id.strip() or not req.name.strip():
         raise HTTPException(status_code=400, detail="participant_id と name は必須です")
-    if req.delay_condition not in DELAYS:
-        raise HTTPException(status_code=400, detail=f"delay_condition は {list(DELAYS.keys())} のいずれかです")
 
     session_id = str(uuid.uuid4())
     condition = random.choice(CONDITIONS)
-    trials = generate_ctb_trials(req.delay_condition)
+    delay_condition = random.choice(list(DELAYS.keys()))
+    trials = generate_mpl_trials(delay_condition)
 
-    n_blocks = max(t["block"] for t in trials)
+    n_blocks = len(EXCHANGE_RATES)
     digit_strings = generate_digit_strings(n_blocks) if condition == "HIGH" else [""] * n_blocks
 
     sessions[session_id] = {
         "participant_id": req.participant_id.strip(),
         "name": req.name.strip(),
         "condition": condition,
-        "delay_condition": req.delay_condition,
-        "delay_label": DELAYS[req.delay_condition],
+        "delay_condition": delay_condition,
+        "delay_label": DELAYS[delay_condition],
         "digit_strings": digit_strings,
-        "trials": trials,
         "created_at": datetime.now().isoformat(),
     }
 
     return {
         "session_id": session_id,
         "condition": condition,
-        "delay_label": DELAYS[req.delay_condition],
+        "delay_condition": delay_condition,
+        "delay_label": DELAYS[delay_condition],
         "digit_strings": digit_strings,
         "trials": trials,
     }
 
 
 @app.post("/api/results")
-def save_result(result: CTBResult):
+def save_result(result: MPLRowResult):
     if result.session_id not in sessions:
         raise HTTPException(status_code=404, detail="セッションが見つかりません")
 
@@ -89,9 +88,8 @@ def save_result(result: CTBResult):
 
 CSV_COLUMNS = [
     "participant_id", "name", "condition",
-    "delay_condition", "trial_id", "block",
-    "stake", "exchange_rate",
-    "allocation_today", "allocation_future",
+    "delay_condition", "block", "exchange_rate", "future_amount",
+    "row", "today_amount", "choice",
     "response_time_ms", "timestamp",
 ]
 

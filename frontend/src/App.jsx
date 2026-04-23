@@ -3,25 +3,26 @@ import { startSession, saveResult } from './utils'
 import SetupScreen from './components/SetupScreen'
 import InstructionScreen from './components/InstructionScreen'
 import DigitCheckScreen from './components/DigitCheckScreen'
-import CTBScreen from './components/CTBScreen'
+import MPLScreen from './components/CTBScreen'
 import BreakScreen from './components/BreakScreen'
 import FinishScreen from './components/FinishScreen'
 import './App.css'
 
-// setup → instruction → [digit_check HIGH] → ctb → break → ctb → ... → finish
+// setup → instruction → [digit_check HIGH] → mpl → break → mpl → ... → finish
 const SCREEN = {
   SETUP: 'SETUP',
   INSTRUCTION: 'INSTRUCTION',
   DIGIT_CHECK: 'DIGIT_CHECK',
-  CTB: 'CTB',
+  MPL: 'MPL',
   BREAK: 'BREAK',
   FINISH: 'FINISH',
 }
 
 function computeBDM(allResults) {
   if (!allResults.length) return null
+  // Select a random row result; A = today_amount, B = future_amount (at delay)
   const sel = allResults[Math.floor(Math.random() * allResults.length)]
-  const reward = sel.allocation_today
+  const reward = sel.choice === 'A' ? sel.today_amount : sel.future_amount
   return { selected: sel, reward, total: reward + 1000 }
 }
 
@@ -35,34 +36,36 @@ export default function App() {
   const [participantId, setParticipantId] = useState('')
   const [condition, setCondition] = useState('LOW')
   const [delayLabel, setDelayLabel] = useState('')
+  const [delayCondition, setDelayCondition] = useState('')
   const [digitStrings, setDigitStrings] = useState([])
-  const [blocks, setBlocks] = useState([])          // array of trial arrays, grouped by block
+  const [blocks, setBlocks] = useState([])
   const [currentBlockIndex, setCurrentBlockIndex] = useState(0)
 
   const [complianceLog, setComplianceLog] = useState([])
   const [allResults, setAllResults] = useState([])
   const [bdmResult, setBdmResult] = useState(null)
 
-  async function handleSetup(pid, name, delayCondition) {
+  async function handleSetup(pid, name) {
     setLoading(true)
     setError(null)
     try {
-      const data = await startSession({ participant_id: pid, name, delay_condition: delayCondition })
+      const data = await startSession({ participant_id: pid, name })
       setSessionId(data.session_id)
       setParticipantId(pid)
       setCondition(data.condition)
       setDelayLabel(data.delay_label)
+      setDelayCondition(data.delay_condition)
       setDigitStrings(data.digit_strings || [])
 
-      // Group trials by block number, preserve block order
+      // Group rows by block
       const blockMap = new Map()
-      for (const trial of data.trials) {
-        if (!blockMap.has(trial.block)) blockMap.set(trial.block, [])
-        blockMap.get(trial.block).push(trial)
+      for (const row of data.trials) {
+        if (!blockMap.has(row.block)) blockMap.set(row.block, [])
+        blockMap.get(row.block).push(row)
       }
       const sortedBlocks = Array.from(blockMap.entries())
         .sort(([a], [b]) => a - b)
-        .map(([, trials]) => trials)
+        .map(([, rows]) => rows)
       setBlocks(sortedBlocks)
       setCurrentBlockIndex(0)
       setScreen(SCREEN.INSTRUCTION)
@@ -77,12 +80,12 @@ export default function App() {
     if (condition === 'HIGH') {
       setScreen(SCREEN.DIGIT_CHECK)
     } else {
-      setScreen(SCREEN.CTB)
+      setScreen(SCREEN.MPL)
     }
   }
 
   function handleDigitCheckPass() {
-    setScreen(SCREEN.CTB)
+    setScreen(SCREEN.MPL)
   }
 
   async function handleBlockComplete(blockResults) {
@@ -94,13 +97,13 @@ export default function App() {
             session_id: sessionId,
             participant_id: participantId,
             condition,
-            delay_condition: blocks[currentBlockIndex]?.[0]?.delay || '',
-            trial_id: r.trial_id,
+            delay_condition: delayCondition,
             block: r.block,
-            stake: r.stake,
             exchange_rate: r.exchange_rate,
-            allocation_today: r.allocation_today,
-            allocation_future: r.allocation_future,
+            future_amount: r.future_amount,
+            row: r.row,
+            today_amount: r.today_amount,
+            choice: r.choice,
             response_time_ms: r.response_time_ms,
           })
         )
@@ -129,14 +132,10 @@ export default function App() {
       const expected = digitStrings[currentBlockIndex - 1] || ''
       setComplianceLog((prev) => [
         ...prev,
-        {
-          blockIdx: currentBlockIndex - 1,
-          typed: typedDigit,
-          correct: typedDigit === expected,
-        },
+        { blockIdx: currentBlockIndex - 1, typed: typedDigit, correct: typedDigit === expected },
       ])
     }
-    setScreen(SCREEN.CTB)
+    setScreen(SCREEN.MPL)
   }
 
   const currentDigit = digitStrings[currentBlockIndex] || ''
@@ -144,7 +143,7 @@ export default function App() {
   const nextDigitForBreak = currentDigit
   const digitChanged = currentDigit !== prevDigit
   const currentBlockTrials = blocks[currentBlockIndex] || []
-  const nextStake = currentBlockTrials[0]?.stake || null
+  const nextStake = currentBlockTrials[0]?.future_amount || null
 
   switch (screen) {
     case SCREEN.SETUP:
@@ -169,9 +168,9 @@ export default function App() {
         />
       )
 
-    case SCREEN.CTB:
+    case SCREEN.MPL:
       return (
-        <CTBScreen
+        <MPLScreen
           condition={condition}
           digitString={currentDigit}
           blockTrials={currentBlockTrials}
@@ -203,6 +202,7 @@ export default function App() {
           complianceLog={complianceLog}
           condition={condition}
           allResults={allResults}
+          delayLabel={delayLabel}
         />
       )
 

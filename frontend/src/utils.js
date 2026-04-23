@@ -4,11 +4,11 @@ export function formatYen(amount) {
   return '¥' + Number(amount).toLocaleString('ja-JP')
 }
 
-export async function startSession({ participant_id, name, delay_condition }) {
+export async function startSession({ participant_id, name }) {
   const res = await fetch(`${API_BASE}/api/session/start`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ participant_id, name, delay_condition }),
+    body: JSON.stringify({ participant_id, name }),
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
